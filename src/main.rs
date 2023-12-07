@@ -2,7 +2,10 @@ extern crate rand;
 extern crate serde;
 extern crate colored;
 extern crate crossterm;
+extern crate open;
 
+use std::fs::File;
+use std::io::Write;
 use rand::Rng;
 use serde::Deserialize;
 use colored::*;
@@ -22,18 +25,42 @@ struct Kanji {
     meaning: String,
 }
 
+fn show_kanji(character: &str) -> std::io::Result<()> {
+    let html_content =
+        format!(r#"
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Kanji Display</title>
+                <style>
+                    body {{ text-align: center; margin-top: 50px; }}
+                    .kanji {{ font-size: 5em; }}
+                </style>
+            </head>
+            <body>
+                <div class="kanji">{}</div>
+            </body>
+            </html>
+        "#, character);
+
+    let mut file = File::create("kanji_display.html")?;
+    file.write_all(html_content.as_bytes())?;
+
+    open::that("kanji_display.html")
+}
+
 fn main() -> std::io::Result<()> {
     let kanji_list: Vec<Kanji> = serde_json::from_str(include_str!("kanji.json")).unwrap();
     let mut rng = rand::thread_rng();
     let kanji = &kanji_list[rng.gen_range(0..kanji_list.len())];
 
-    println!("{}", kanji.character.repeat(3));
-    println!("{}", kanji.character.repeat(3));
-    println!("{}", kanji.character.repeat(3));
+    println!("Kanji: {}", kanji.character);
     println!("Onyomi: {}", kanji.onyomi);
     println!("Kunyomi: {}", kanji.kunyomi);
 
-    println!("Do you know this kanji? (Y/N)");
+    println!("Do you know this kanji? (Y/N). Press O to open in full screen");
 
     enable_raw_mode()?;
     let mut response = ' ';
@@ -47,6 +74,10 @@ fn main() -> std::io::Result<()> {
                 response = 'n';
                 break;
             }
+            KeyCode::Char('o') | KeyCode::Char('O') => {
+                show_kanji(&kanji.character)?;
+                continue;
+            }
             _ => {
                 continue;
             }
@@ -54,23 +85,19 @@ fn main() -> std::io::Result<()> {
     }
     disable_raw_mode()?;
 
-    match response {
-        'y' => {
-            println!("What is the meaning of this kanji?");
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
+    if response == 'y' {
+        println!("What is the meaning of this kanji?");
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
 
-            if input.trim().eq_ignore_ascii_case(&kanji.meaning) {
-                println!("{}", "Correct!".green());
-            } else {
-                println!("{}", "Incorrect.".red());
-                println!("The correct meaning is: {}", kanji.meaning);
-            }
+        if input.trim().eq_ignore_ascii_case(&kanji.meaning) {
+            println!("{}", "Correct!".green());
+        } else {
+            println!("{}", "Incorrect.".red());
+            println!("The correct meaning is: {}", kanji.meaning);
         }
-        'n' => {
-            println!("The meaning of this kanji is: {}", kanji.meaning);
-        }
-        _ => {}
+    } else if response == 'n' {
+        println!("The meaning of this kanji is: {}", kanji.meaning);
     }
 
     Ok(())
