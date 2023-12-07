@@ -9,11 +9,7 @@ use std::io::Write;
 use rand::Rng;
 use serde::Deserialize;
 use colored::*;
-use crossterm::{
-    event::{ read, Event, KeyCode },
-    execute,
-    terminal::{ disable_raw_mode, enable_raw_mode },
-};
+use crossterm::{ event::{ read, Event, KeyCode }, terminal::{ disable_raw_mode, enable_raw_mode } };
 use std::io;
 
 #[derive(Deserialize, Debug)]
@@ -36,7 +32,7 @@ fn show_kanji(character: &str) -> std::io::Result<()> {
                 <title>Kanji Display</title>
                 <style>
                     body {{ text-align: center; margin-top: 50px; }}
-                    .kanji {{ font-size: 5em; }}
+                    .kanji {{ font-size: 18em; }}
                 </style>
             </head>
             <body>
