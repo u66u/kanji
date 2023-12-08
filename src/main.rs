@@ -153,11 +153,15 @@ fn main() -> std::io::Result<()> {
         let mut input_guess = String::new();
         io::stdin().read_line(&mut input_guess)?;
 
-        if input_guess.trim().eq_ignore_ascii_case(&random_kanji.meaning) {
+        let meanings: Vec<&str> = random_kanji.meaning.split(',').map(str::trim).collect();
+        let input_trimmed = input_guess.trim();
+
+        if meanings.iter().any(|&meaning| input_trimmed.eq_ignore_ascii_case(meaning)) {
             println!("{}", "Correct!".green());
+            println!("Meanings include: {}", random_kanji.meaning);
         } else {
             println!("{}", "Incorrect.".red());
-            println!("The correct meaning is: {}", random_kanji.meaning);
+            println!("The meaning of this kanji is: {}", random_kanji.meaning);
         }
     } else if response == 'n' {
         println!("The meaning of this kanji is: {}", random_kanji.meaning);
