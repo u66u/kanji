@@ -14,7 +14,7 @@ use crossterm::{ event::{ read, Event, KeyCode }, terminal::{ disable_raw_mode, 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Config {
-    selected_category: Option<String>,
+    selected_category: Option<Vec<String>>,
     kanji: Vec<Kanji>,
 }
 
@@ -55,44 +55,62 @@ fn show_kanji(character: &str) -> std::io::Result<()> {
 
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    let selected_category_arg = args.get(1);
+
+    let mut categories: Vec<String> = Vec::new();
+    let mut idx = 1;
+
+    // selecting categories
+    while idx < args.len() {
+        match args[idx].as_str() {
+            "-n" | "--jlptn" if idx + 1 < args.len() => {
+                let value = &args[idx + 1];
+                match value.as_str() {
+                    "all" => {
+                        categories = (1..=5).map(|n| format!("jlptn{}", n)).collect();
+                    }
+                    range if range.contains('-') => {
+                        let parts: Vec<&str> = range.split('-').collect();
+                        if parts.len() == 2 {
+                            let start = parts[0].parse::<u32>().expect("Invalid range start");
+                            let end = parts[1].parse::<u32>().expect("Invalid range end");
+                            categories.extend((start..=end).map(|n| format!("jlptn{}", n)));
+                        } else {
+                            eprintln!("Invalid range format. Format should be like '-n 1-3'.");
+                            return Ok(());
+                        }
+                    }
+                    _ => {
+                        value.split(',').for_each(|num| {
+                            categories.push(format!("jlptn{}", num.trim()));
+                        });
+                    }
+                }
+                idx += 2;
+            }
+            _ => {
+                idx += 1;
+            }
+        }
+    }
 
     let mut file = File::open("kanji.json")?;
     let mut json_content = String::new();
     file.read_to_string(&mut json_content)?;
     let mut config: Config = serde_json::from_str(&json_content).unwrap();
 
-    if let Some(category) = selected_category_arg {
-        if category != "all" {
-            let valid_categories: Vec<_> = config.kanji
-                .iter()
-                .map(|k| k.category.clone())
-                .collect();
-            if !valid_categories.contains(&category.to_string()) {
-                println!(
-                    "Invalid category specified. Available categories: {:?}",
-                    valid_categories
-                );
-                return Ok(());
-            }
-        }
-        config.selected_category = if category == "all" {
-            None
-        } else {
-            Some(category.to_string())
-        };
-
+    if !categories.is_empty() {
+        config.selected_category = Some(categories.clone());
         fs::write("kanji.json", serde_json::to_string_pretty(&config)?)?;
     }
 
-    let filtered_kanji = match &config.selected_category {
-        Some(category) =>
+    let filtered_kanji: Vec<Kanji> = match &config.selected_category {
+        Some(cats) =>
             config.kanji
                 .iter()
-                .filter(|k| &k.category == category)
+                .filter(|k| cats.contains(&k.category))
                 .cloned()
-                .collect::<Vec<Kanji>>(),
-        None => config.kanji.clone(),
+                .collect(),
+        None => config.kanji.clone(), // If categories are empty display all kanji
     };
 
     let random_kanji = &filtered_kanji[rand::thread_rng().gen_range(0..filtered_kanji.len())];
